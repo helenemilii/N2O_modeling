@@ -23,7 +23,7 @@ library(moreparty)
 #1. download data from zenodo
 
 #download data to your computer
-#data can be found under the same DOY as this code (https://doi.org/10.5281/zenodo.10517599). Name of the datafile: Example_data.csv
+#data can be found from the same Github repository. File name Example_data.csv
 
 #read in data
 data<-read.csv("C:/Documents/Example_data.csv")
@@ -40,11 +40,11 @@ dates<-seq.POSIXt(data$date[1], data$date[nrow(data)], by="1 day")
 #create index column (row numbers)
 data$ind<-seq(1:nrow(data))
 
-#store training period data and take fourth year of data for evaluation
+#store training period data and take the fourth year of data for evaluation
 trainingperiod<-data %>% filter(date <= dates[365+365+365]) #leave fourth year out from training period
 evaluation_fourthtear<-data %>% filter(date > dates[365+365+365]) #store the fourth year as evaluation data
 
-#separate training period to final training data (70% of training period data) and evaluation within training period (30%): 
+#separate training period to final training data (70% of training period data) and evaluation within the training period (30%): 
 #take randomly 70% as training, and 30% as evaluation data
 set.seed (500)
 indexes<- sample(trainingperiod$ind, round(0.7*nrow(trainingperiod),0))
@@ -64,7 +64,7 @@ hist(training$n2o)
 hist(training_final$n2o)
 
 #datasets for modeling are now ready
-#training data: training period of three years, 70% randomly chosen and class-imbalance decreased with SMOGN 
+#training data: training period of three years, 70% randomly chosen and class imbalance decreased with SMOGN 
   #dataframe: training_final
 #evaluation within training period: 30% of training period data randomly chosen
   #dataframe: evaluation_within
