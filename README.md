@@ -3,7 +3,7 @@ Modeling temporal variation of nitrous oxide (N2O) using Random forest with cond
 
 Example data includes ~4 years of daily mean N2O fluxes measured with automatic chamber in a drained peatland forest (Lettosuo, Finland). The code is a simplified version of the code used to model the temporal variation of N2O in an article by Rautakoski et al. (2014, in preparation). 
 
-Code: Modeling_N2O_example.txt
+Code: Modeling_N2O_R_code.txt
 R code includes the following parts: 1) download data from zenodo, 2) prepare data for modeling, 3) train random forest with conditional inference trees, 4) variable importance, 5) accumulated local effects and 6) model evaluation. In the article, models are run 10 times and means are used to report modeling results. Models are also run for all six chambers. The code has been run on R version 4.0.5.
 
 Data: Example_data.csv
