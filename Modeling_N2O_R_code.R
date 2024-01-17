@@ -5,6 +5,8 @@
 
 #author: Helena Rautakoski (helena.rautakoski@fmi.fi)
 #data: ~4 years of daily mean N2O fluxes measured with automatic chamber in Lettosuo drained peatland forest (Finland)
+#aim: find important variables explaining the temporal variation of N2O, assess the role of lagged environmental conditions affecting N2O flux and 
+#explore responses between N2O flux and lagged and unlagged environmental conditions. 
 
 #########################
 
@@ -20,43 +22,42 @@ library(UBL)
 library(moreparty)
 
 #########
-#1. download data from zenodo
+#1. download data from github 
 
 #download data to your computer
-#data can be found from the same Github repository. File name Example_data.csv
+#data can be found from the same Github repository (helenemilii/N2O_modeling). File name Example_data.csv
 
 #read in data
 data<-read.csv("C:/Documents/Example_data.csv")
 
+#date as posixct format
+data$date<-as.POSIXct(strptime(data$date, "%Y-%m-%d", tz="UTC"))
+
 #########
 #2. prepare data for modeling
 
-#date as posixct
-data$date<-as.POSIXct(strptime(data$date, "%Y-%m-%d", tz="UTC"))
-
-#all days within the study period
+#store all days within the study period
 dates<-seq.POSIXt(data$date[1], data$date[nrow(data)], by="1 day")
 
 #create index column (row numbers)
 data$ind<-seq(1:nrow(data))
 
-#store training period data and take the fourth year of data for evaluation
-trainingperiod<-data %>% filter(date <= dates[365+365+365]) #leave fourth year out from training period
-evaluation_fourthtear<-data %>% filter(date > dates[365+365+365]) #store the fourth year as evaluation data
+#select the first three years of data as a training period
+trainingperiod<-data %>% filter(date <= dates[365+365+365])
 
-#separate training period to final training data (70% of training period data) and evaluation within the training period (30%): 
-#take randomly 70% as training, and 30% as evaluation data
+#take the fourth year of data for evaluation
+evaluation_fourthtear<-data %>% filter(date > dates[365+365+365])
+
+#separate the training period into the actual training data (70% of training period data) and evaluation data (evaluation within the training period, 30% of training period data): 
 set.seed (500)
 indexes<- sample(trainingperiod$ind, round(0.7*nrow(trainingperiod),0))
 training <- trainingperiod[trainingperiod$ind %in% indexes,]
 evaluation_within <- trainingperiod[!(trainingperiod$ind %in% indexes),]
 
-#plot
+#plot training data, data for evaluation within the training period and data for evaluation outside training period
 ggplot(data=NULL, aes(x=date, y=n2o))+geom_point(data=training)+geom_point(data=evaluation_within, color="red")+geom_point(data=evaluation_fourthtear, color="blue")+theme_minimal()
 
-
-#make classes more balanced with SMOGN
-#=undersampling or common and oversampling of rare flux values
+#make N2O distribution more balanced with SMOGN: undersample common N2O values and oversample rare values
 training_final <- SMOGNRegress(n2o ~ ., training[,-c(1)], C.perc = list(0.7,2), k=5, dist="Euclidean")
 
 #before vs after SMOGN
@@ -64,7 +65,7 @@ hist(training$n2o)
 hist(training_final$n2o)
 
 #datasets for modeling are now ready
-#training data: training period of three years, 70% randomly chosen and class imbalance decreased with SMOGN 
+#training data: training period of three years, 70% randomly chosen and distribution is made more balanced with SMOGN 
   #dataframe: training_final
 #evaluation within training period: 30% of training period data randomly chosen
   #dataframe: evaluation_within
@@ -83,7 +84,7 @@ mod<-cforest(n2o ~., data=training_final[,-c(58)], control = cforest_unbiased(mt
 ######
 #4. variable importance (VI)
 
-#function to calculate VIs and store them in dataframe
+#function to calculate VIs and store them in data frame
 VI_func<-function(model){
   vi <- varimp(model,conditional = T)
   vi_<-as.data.frame(vi)
@@ -95,13 +96,13 @@ VI_func<-function(model){
 
 #calculate VIs using the function
 variable_importance<-VI_func(mod) #takes several minutes
-#interpretation: the variable with the highest VI value is the most important variable explaining temporal variation of N2O
+#interpretation: the variable with the highest VI value is the most important variable explaining the temporal variation of N2O
 
 #plot VIs
 variable_importance %>% mutate(column = fct_reorder(column, desc(vi))) %>% ggplot(aes(x=column, y=vi))+geom_point()+theme(axis.text.x = element_text(angle = 90), panel.background = element_rect(fill="white"), panel.grid = element_line(color="grey90"))+ylab("Conditional permutation importance")+xlab("Explanatory variable")
 
-#total VIs (unlagged + lagged VI)
-variable_importance<- variable_importance[order(variable_importance$column), ]
+#calculate total VIs (unlagged + lagged VI of each variable)
+variable_importance<- variable_importance[order(variable_importance$column),]
 total_vi<-data.frame(variable=c("moist20", "moist7","precip","t_5cm","t_air","t_surf","wtl"),vi=c(sum(variable_importance$v[1:8]),sum(variable_importance$v[9:16]),sum(variable_importance$v[17:24]),sum(variable_importance$v[25:32]),sum(variable_importance$v[33:40]),sum(variable_importance$v[41:48]),sum(variable_importance$v[49:56])))
 
 #plot total VIs
@@ -209,7 +210,7 @@ t_surf_7<-aledata %>% filter(var=="t_surface_7")
   theme(panel.background = element_rect(fill="white", color="black", linetype = "solid"),panel.grid.minor.y = element_blank(),panel.grid.major.y = element_line(color="gray90"), panel.grid.major.x = element_line(color="gray90"),panel.grid.minor.x = element_blank(),
         axis.line = element_line(colour = "black"), axis.text = element_text(color="black", size=12),axis.title = element_text(size=12, color="black") ,legend.position = "none",plot.margin = ggplot2::margin(t=2,r=2,b=2,l=5)))
 
-#make legend
+#make a legend
 for_legend<-ggplot()+ylim(2,10)+xlim(1,10)+
   geom_segment(aes(y=9.5, yend=9.5 ,x=1,xend=2.2),color="#000000", size=1.5)+annotate("text",x=4.32,y=9.6,label=c("No lag"),size=3.6)+
   geom_segment(aes(y=8.5, yend=8.5 ,x=1,xend=2.2),color="gray24", size=1)+annotate("text",x=4.75,y=8.6,label=c("1 day lag"),size=3.6)+
@@ -231,36 +232,36 @@ plot_grid(moist10plot,moist20plot,wtlplot, precipplot, t_ambbplot, t_surfplot, t
 #make OOB prediction
 preds<-predict(mod,type="response" ,OOB=T)
 
-#OOB RMSE
+#OOB: RMSE
 rmse(actual=training_final$n2o, predicted=preds)
 
-#OOB R2
+#OOB: R2
 cor(preds, training_final$n2o)^2
 
 ##make prediction to within-training-period evaluation data
 evaluation_within$preds<-predict(mod, newdata=evaluation_within, type="response")
 
-#evaluation within training period RMSE
+#evaluation within training period: RMSE
 rmse(actual=evaluation_within$n2o, predicted=evaluation_within$preds)
 
-#evaluation within training period R2
+#evaluation within training period: R2
 cor(evaluation_within$preds, evaluation_within$n2o)^2
 
 ##make prediction to outside-training-period evaluation data
 evaluation_fourthtear$preds<-predict(mod, newdata=evaluation_fourthtear, type="response")
 
-#evaluation outside training period RMSE
+#evaluation outside training period: RMSE
 rmse(actual=evaluation_fourthtear$n2o, predicted=evaluation_fourthtear$preds)
 
-#evaluation within training period R2
+#evaluation within training period: R2
 cor(evaluation_fourthtear$preds, evaluation_fourthtear$n2o)^2
 
-#plot predicted vs measured
+#plot predicted vs measured N2O flux
 plot(training_final$n2o, preds)
 plot(evaluation_within$n2o, preds2)
 plot(evaluation_fourthtear$n2o, preds3)
 
-#plot in time series
+#plot predicted and measured N2O flux in time series
 x<-data
 names(x)[2]<-"preds"
 ggplot(data=NULL, aes(x=date, y=preds))+geom_point(data=x)+geom_point(data=evaluation_within, color="tomato")+geom_point(data=evaluation_fourthtear, color="tomato4")+ylab("predicted/measured flux")
